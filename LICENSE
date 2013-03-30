@@ -1,0 +1,14 @@
+//////////////////////////////////////////////////
+// GEIGER COUNTER / LOGGER V1.0
+// (c) Ismas 2013
+//
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// CC BY-NC-SA
+// Do whatever you want with it as long you cite me,
+// not shell it and preserve this licence.
+// This includes work of others, mainly libraries
+// Credited where corresponds.
+//////////////////////////////////////////////////
+High voltage inverter is copied from Michal Zalinsky (@lcamtuf) design. http://lcamtuf.coredump.cx/geiger/ All credits on this parte go to him.
+Same values, information and inspiraton from DIYGeigerCounter kit. https://sites.google.com/site/diygeigercounter/
+
