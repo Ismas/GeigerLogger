@@ -3,23 +3,43 @@
 // (c) Ismas 2013			//
 /////////////////////////////////////////
 
+GeigerLogger
+============
+	Geiger Counter with internal logger, real time clock, serial console and more.
+
+MOTIVATIONS
+-----------
+	Geiger counters found in internet looks quite näive. Also, commercial geiger counters looks ridiculously expensive to me. Last, for fun and non-profit.
+
 LICENSE
 -------
-    This Geiger Counter and Logger proyect is Creative Commons - ShareAlike, Not Commercial.>Y 
+//////////////////////////////////////////////////
+// GEIGER COUNTER / LOGGER V1.0
+// (c) Ismas 2013
+//
+// License Creative Commons Attribution-NonCommercial-ShareAlike
+// CC BY-NC-SA
+// Do whatever you want with it as long you cite me,
+// not shell it and preserve this licence.
+// This includes work of others, mainly libraries
+// Credited where corresponds.
+//////////////////////////////////////////////////
+High voltage inverter is copied from Michal Zalinsky (@lcamtuf) design. http://lcamtuf.coredump.cx/geiger/ All credits on this parte go to him.
+Same values, information and inspiraton from DIYGeigerCounter kit. https://sites.google.com/site/diygeigercounter/
 
 
 INTRODUCTION
 ------------
-    This contains the schematics and Arduino sketch for a Geiger counter with the folowing capabilities:
+    This contains the schematics and Arduino sketch for a Geiger counter made of an Arduino Nano and the fewer and cheap possible components with the folowing capabilities:
     
     * CPS, CPM and uSV real time counting with 1 second update and real measurements, not extrapolations.
     * ... CPM shows last minute counting and uSv/h last hour counting.
     * Battery backed real time clock to date each measurement.
-    * Internal EEPROM storage for last 140h - 200h, not contiguous.
-    * ... that leads to accumuilative dosimeter function by selecting an hour range.
+    * Internal EEPROM storage for last 140h - 200h measures, not continuous.
+    * ... that leads to accumulative dosimeter function by selecting an hour range.
     * Serial console for data dumping and configuring.
     * GPS capable for accurate radio mapping of areas (not yet included in this version)
-    * Software programmable HV voltage to accomadate several GM tubes.
+    * Software programmable GM tube high voltage to accomadate several GM tubes.
     * ... with CPM to uSv/h configurable conversion rate. 
     * Of course, light and beep event notificator.
     * Portable, battery powered, low consumption (~50mA)
@@ -28,4 +48,32 @@ INTRODUCTION
 
 DESCRIPTION
 -----------
+	This is a Geiger counter/logger/dosimeter. Contains a graphical display
+
+	(TBC)
+ 
+	High voltage inverter is copied from Michal Zalinsky (@lcamtuf) design. http://lcamtuf.coredump.cx/geiger/ All credits on this parte go to him.
+	Same values, information and inspiraton from DIYGeigerCounter kit. https://sites.google.com/site/diygeigercounter/
+ 
+HARDWARE
+--------
+	(TBC)
+
+RECIPE LIST
+--------------
+	* 1x Arduino Nano v3.0					(20€)
+	* 1x GM Tube - Whatever as HV is enough. SBM20 tested.	(20€)
+	* 1x PCD5844 LCD screen (Nokia screen)			( 3€)
+	* 1x DS1307 RTC	, 32KHZ xtal, CR2032 battery		( 3€)		
+	* 1x LM35 temperature sensor IC				( 1€)
+	* 1x 24LC1025 128KB serial EEPROM			( 3€) (less capacity cheaper)
+	* 1x HV transformer					(  ?)
+	* Bunch of electronic components, board		       ~(10€)
+	* Plastic box						( 5€)
+        
+SOFTWARE
+--------
+	(TBC)
+
+
 
