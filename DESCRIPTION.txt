@@ -1,0 +1,31 @@
+///////////////////////////////////////////
+// Geiger Counter and Logger V1.0	//
+// (c) Ismas 2013			//
+/////////////////////////////////////////
+
+LICENSE
+-------
+    This Geiger Counter and Logger proyect is Creative Commons - ShareAlike, Not Commercial.>Y 
+
+
+INTRODUCTION
+------------
+    This contains the schematics and Arduino sketch for a Geiger counter with the folowing capabilities:
+    
+    * CPS, CPM and uSV real time counting with 1 second update and real measurements, not extrapolations.
+    * ... CPM shows last minute counting and uSv/h last hour counting.
+    * Battery backed real time clock to date each measurement.
+    * Internal EEPROM storage for last 140h - 200h, not contiguous.
+    * ... that leads to accumuilative dosimeter function by selecting an hour range.
+    * Serial console for data dumping and configuring.
+    * GPS capable for accurate radio mapping of areas (not yet included in this version)
+    * Software programmable HV voltage to accomadate several GM tubes.
+    * ... with CPM to uSv/h configurable conversion rate. 
+    * Of course, light and beep event notificator.
+    * Portable, battery powered, low consumption (~50mA)
+    * Temperature and battery sensing. 
+
+
+DESCRIPTION
+-----------
+
