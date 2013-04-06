@@ -14,7 +14,8 @@
 // CAPABILITES SELECTOR
 ////////////////////////////
 // Uncomment to enable.
-#define LCD  1// Display
+#define LCT  1// Text Display HD8448
+//#define LCG  1// Graphic Display PCD8544
 #define RCK  1// Clock
 #define TMP  1// Termometer
 #define SER  1// Serial
@@ -37,6 +38,8 @@
 //Real TIme CLock
 #include <Wire.h>
 #include <DS1307.h> // written by  mattt on the Arduino forum and modified by D. Sjunnesson
+// LCD text screen
+#include <LiquidCrystal.h>
 /////////////////////////////
 
 //////////////////////////////
@@ -46,11 +49,12 @@
 #define IRQPIN     2  // IRQ pin. Corresponds to IRQ 0
 #define HVPIN      3  // PWM pin for HV. Not every pin can be PWM.
 #define BUZPIN     5  // PWM pin for buzzer.
-#define PCD1       8   //SCLK
-#define PCD2       9   //MOSI
-#define PCD3       10  //D/C
-#define PCD4       12  //RST
-#define PCD5       11  //SCE
+#define PCD0       7  // RS
+#define PCD1       8   //SCLK - E
+#define PCD2       9   //MOSI - D7
+#define PCD3       10  //D/C - D6
+#define PCD4       12  //RST - D5
+#define PCD5       11  //SCE - D4
 #define LEDPIN     13 // Ping for led & buzzer activation
 #define TEMPPIN    7  //Analog
 #define BATPIN     6  //Analog 
@@ -66,7 +70,8 @@
 #define HVCONST   8.5        // PWM to high voltage ratio. Not sure of this
 #define TEMPCONST 0.456054688 // mv to temperature ratio
 #define BATCONST  10.15          // read to mvolts battery ratio
-#define uSvCONST  0.0057      // SBM-20 Conversion CPM to uSv, 
+//#define uSvCONST  0.0057      // SBM-20 Conversion CPM to uSv, PER HOUR
+#define uSvCONST  0.000095      // SBM-20 Conversion CPM to uSv, PER MINUTE
 #define EEMAX     1024        // eprom memory size in bytes. This is for internal nano
 //#define EEMAX     128*1024  //eeprom memory size in bytes. This is for 27LC1025
 #define DISK1     0x50        // External eeprom i2c id 
@@ -74,8 +79,12 @@
 //////////////////////////////////
 // Hardware globals
 ///////////////////////////////////
-#ifdef LCD
+#ifdef LCG
 PCD8544 nokia =  PCD8544(PCD1, PCD2, PCD3, PCD4, PCD5);
+#endif
+#ifdef LCT
+//LiquidCrystal lcd(RS-pin, E, D4, D5, D6, D7);
+LiquidCrystal lcd(7,8,12,11,10,9);
 #endif
 ////////////////////////////////////
 
@@ -106,181 +115,42 @@ char          fecha[11];
 // Hardware functions
 //////////////////////////////////////////////////
 
-////////////////////////////////////////////
-// SETUP
-////////////////////////////////////////////
-void setup(){
-  // Set pins
-  pinMode(HVPIN, OUTPUT);    
-  pinMode(BUZPIN, OUTPUT);    
-  pinMode(LEDPIN, OUTPUT);
-
-  // RTC
-#ifdef RCK
-  // RTC HOUR SET
-  // Uncomment and change to set clock
- 
-   RTC.stop();
-   RTC.set(DS1307_SEC,00);     //set the seconds
-   RTC.set(DS1307_MIN,50);     //set the minutes
-   RTC.set(DS1307_HR,20);      //set the hours
-   RTC.set(DS1307_DOW,3);      //set the day of the week
-   RTC.set(DS1307_DATE,29);    //set the date
-   RTC.set(DS1307_MTH,3);     //set the month
-   RTC.set(DS1307_YR,13);      //set the year
-  
-  RTC.stop();
-  delay(50);
-  RTC.start();
-  delay(50);
-#endif
-
-  // Serial  
-#ifdef SER
-  Serial.begin(SERSPEED);
-#endif
-
-#ifdef EEP
-  // Eeprom initialization and dump
-  //eepromdump();
-  //reseteeprom();
-#ifdef DSK
-  // Read 24 bits actual position
-  EEpos = (unsigned long)(readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2)); //Posicion actual
-#endif
-#ifndef DSK
-  // Read 24 bits actual position
-  EEpos = (unsigned long)(EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2)); //Posicion actual
-#endif
-  //Jump first 3 bytes when reset
-  if (EEpos==0) EEpos=3;
-#endif
-
-#ifdef LCD
-  //Configure Screen
-  nokia.init();
-  nokia.setContrast(40);
-  //Invert screen if desired
-  //nokia.command(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED);
-  //Start message
-  nokia.clear();
-  nokia.print("GEIGER logger\n Ismas 2013\n");
-#ifdef LCD
-  nokia.print("LCD ");
-#endif
-#ifdef RCK
-  nokia.print("RTC ");
-#endif
-#ifdef TMP
-  nokia.print("TMP ");
-#endif
-#ifdef SER
-  nokia.print("SER ");
-#endif
-#ifdef SDC
-  nokia.print("SDC ");
-#endif
-#ifdef EEP
-  nokia.print("EEP ");
-#endif
-#ifdef GPS
-  nokia.print("GPS ");
-#endif
-#ifdef DSK
-  nokia.print("GPS ");
-#endif
-#ifdef EEP
-  nokia.print("MEM:");
-  nokia.print(EEpos);
-  nokia.print("/");
-  nokia.print(EEMAX);
-#endif
-  nokia.display();
-  delay(3000);
-#endif
-
-
-#ifdef SDC
-  /*
-#ifdef SER
-   Serial.print("Initializing SD card...");
-   #endif
-   // make sure that the default chip select pin is set to
-   // output, even if you don't use it:
-   pinMode(10, OUTPUT);
-   
-   #ifdef SER
-   // see if the card is present and can be initialized:
-   if (!SD.begin(10)) Serial.println("Card failed, or not present");
-   else Serial.println("card initialized.");
-   #endif
-   // so you have to close this one before opening another.
-   dataFile = SD.open("TEXT.TXT", FILE_WRITE);
-   #ifdef SER
-   if (!dataFile) {
-   Serial.println("Impossible to open file");
-   return;
-   }
-   #endif
-   delay(1000);
-   */
-#endif
-
-  // Clear CPM buffer
-  for (i=0;i<59;i++) CPMB[i]=0;
-
-  // Start GM tube
-  setHV(400);
-
-  // FAST PWM with OCRA
-  /* 
-   // This kills display
-   TCCR2A = _BV(COM2A0) | _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
-   TCCR2B = _BV(WGM22) | _BV(CS22);
-   OCR2A = 18;
-   OCR2B = 9;
-   */
-
-  analogWrite(BUZPIN, 16);    // Buzzer PWM
-  digitalWrite(LEDPIN,HIGH); // Lights light
-
-  // Start GM sensing interupt
-  attachInterrupt(IRQ,irqattend,RISING);
-}
-
-//////////////////////////////////////////////////
-// Interrupt function
-//////////////////////////////////////////////////
-void irqattend(){
-  CPS++; // Increments Counts Per Second
-  analogWrite(BUZPIN, 16);   // Buzzer PWM
-  digitalWrite(LEDPIN,HIGH); // Lights light
-}
-
-//////////////////////////////////////////////////
-// Set PWM voltage control
-//////////////////////////////////////////////////
-void setHV(int volts){
-  analogWrite(HVPIN, (unsigned int)((float)volts/HVCONST));  
-}
-
-//////////////////////////////////////////////////
-// Read temperature
-//////////////////////////////////////////////////
-void gettemp() {
-  TEMP = int(analogRead(TEMPPIN) * TEMPCONST); 
-}
-
-//////////////////////////////////////////////////
-// Read battery
-//////////////////////////////////////////////////
-void getbatt() {
-  BAT = int(analogRead(BATPIN) * BATCONST); 
-}
-
 ////////////////////////////////////////////////
 // EEPROM FUNCTIONS
 ////////////////////////////////////////////////
+
+////////////////////////////////////////////////
+// External EEPROM FUNCINTIONS
+// TAKEN FROM http://www.hobbytronics.co.uk/arduino-external-eeprom
+////////////////////////////////////////////////
+#ifdef DSK
+void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) {
+  Wire.beginTransmission(deviceaddress);
+  Wire.write((int)(eeaddress >> 8));   // MSB
+  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.write(data);
+  Wire.endTransmission();
+
+  delay(5);
+}
+
+byte readEEPROM(int deviceaddress, unsigned int eeaddress ) {
+  byte rdata = 0xFF;
+
+  Wire.beginTransmission(deviceaddress);
+  Wire.write((int)(eeaddress >> 8));   // MSB
+  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.endTransmission();
+
+  Wire.requestFrom(deviceaddress,1);
+
+  //if (Wire.available()) rdata = Wire.receive();
+  if (Wire.available()) rdata = Wire.read();
+
+  return rdata;
+}
+#endif
+
 #ifdef EEP
 void reseteeprom() {
   Serial.println("Resetting EEPROM");
@@ -334,38 +204,173 @@ void eepromdumpformatted() {
 }
 #endif
 
-////////////////////////////////////////////////
-// External EEPROM FUNCINTIONS
-// TAKEN FROM http://www.hobbytronics.co.uk/arduino-external-eeprom
-////////////////////////////////////////////////
-#ifdef DSK
-void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) {
-  Wire.beginTransmission(deviceaddress);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
-
-  delay(5);
-}
-
-byte readEEPROM(int deviceaddress, unsigned int eeaddress ) {
-  byte rdata = 0xFF;
-
-  Wire.beginTransmission(deviceaddress);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.endTransmission();
-
-  Wire.requestFrom(deviceaddress,1);
-
-  //if (Wire.available()) rdata = Wire.receive();
-  if (Wire.available()) rdata = Wire.read();
-
-  return rdata;
-}
-#endif
 //////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Interrupt function
+//////////////////////////////////////////////////
+void irqattend(){
+  CPS++; // Increments Counts Per Second
+  analogWrite(BUZPIN, 16);   // Buzzer PWM
+  digitalWrite(LEDPIN,HIGH); // Lights light
+}
+
+//////////////////////////////////////////////////
+// Set PWM voltage control
+//////////////////////////////////////////////////
+void setHV(int volts){
+  analogWrite(HVPIN, (unsigned int)((float)volts/HVCONST));  
+}
+
+
+////////////////////////////////////////////
+// SETUP
+////////////////////////////////////////////
+void setup(){
+  // Set pins
+  pinMode(HVPIN, OUTPUT);    
+  pinMode(BUZPIN, OUTPUT);    
+  pinMode(LEDPIN, OUTPUT);
+
+  // RTC
+#ifdef RCK
+  // RTC HOUR SET
+  // Uncomment and change to set clock
+ 
+   RTC.stop();
+   RTC.set(DS1307_SEC,00);     //set the seconds
+   RTC.set(DS1307_MIN,50);     //set the minutes
+   RTC.set(DS1307_HR,20);      //set the hours
+   RTC.set(DS1307_DOW,3);      //set the day of the week
+   RTC.set(DS1307_DATE,29);    //set the date
+   RTC.set(DS1307_MTH,3);     //set the month
+   RTC.set(DS1307_YR,13);      //set the year
+  
+  RTC.stop();
+  delay(50);
+  RTC.start();
+  delay(50);
+#endif
+
+  // Serial  
+#ifdef SER
+  Serial.begin(SERSPEED);
+#endif
+
+#ifdef EEP
+  // Eeprom initialization and dump
+  //eepromdump();
+  //reseteeprom();
+#ifdef DSK
+  // Read 24 bits actual position
+  EEpos = (unsigned long)(readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2)); //Posicion actual
+#endif
+#ifndef DSK
+  // Read 24 bits actual position
+  EEpos = (unsigned long)(EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2)); //Posicion actual
+#endif
+  //Jump first 3 bytes when reset
+  if (EEpos==0) EEpos=3;
+#endif
+
+#ifdef LCG
+  //Configure Screen
+  nokia.init();
+  nokia.setContrast(40);
+  //Invert screen if desired
+  //nokia.command(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED);
+  //Start message
+  nokia.clear();
+  nokia.print("GEIGER logger\n Ismas 2013\n");
+#ifdef LCG
+  nokia.print("LCD ");
+#endif
+#ifdef RCK
+  nokia.print("RTC ");
+#endif
+#ifdef TMP
+  nokia.print("TMP ");
+#endif
+#ifdef SER
+  nokia.print("SER ");
+#endif
+#ifdef SDC
+  nokia.print("SDC ");
+#endif
+#ifdef EEP
+  nokia.print("EEP ");
+#endif
+#ifdef GPS
+  nokia.print("GPS ");
+#endif
+#ifdef DSK
+  nokia.print("GPS ");
+#endif
+#ifdef EEP
+  nokia.print("MEM:");
+  nokia.print(EEpos);
+  nokia.print("/");
+  nokia.print(EEMAX);
+#endif
+  nokia.display();
+  delay(3000);
+#endif
+
+#ifdef LCT
+  lcd.begin(8, 2);
+  lcd.setCursor(0, 0);
+  lcd.println("Geiger ");
+  lcd.setCursor(0, 1);
+  lcd.print("dosimetr");
+  delay(1000);
+  lcd.setCursor(0, 0);
+  lcd.println("(C) Ismas");
+  lcd.setCursor(0, 1);
+  lcd.print("  2013  ");
+  delay(1000);
+#endif
+
+#ifdef SDC
+  //SD initialization
+#endif
+
+  // Clear CPM buffer
+  for (i=0;i<59;i++) CPMB[i]=0;
+
+  // Start GM tube
+  setHV(400);
+
+  // FAST PWM with OCRA
+  /* 
+   // This kills display
+   TCCR2A = _BV(COM2A0) | _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+   TCCR2B = _BV(WGM22) | _BV(CS22);
+   OCR2A = 18;
+   OCR2B = 9;
+   */
+
+  analogWrite(BUZPIN, 16);    // Buzzer PWM
+  digitalWrite(LEDPIN,HIGH); // Lights light
+
+  // Start GM sensing interupt
+  attachInterrupt(IRQ,irqattend,RISING);
+}
+
+
+//////////////////////////////////////////////////
+// Read temperature
+//////////////////////////////////////////////////
+void gettemp() {
+  TEMP = int(analogRead(TEMPPIN) * TEMPCONST); 
+}
+
+//////////////////////////////////////////////////
+// Read battery
+//////////////////////////////////////////////////
+void getbatt() {
+  BAT = int(analogRead(BATPIN) * BATCONST); 
+}
+
 
 
 ////////////////////////////////////////////////
@@ -374,11 +379,21 @@ byte readEEPROM(int deviceaddress, unsigned int eeaddress ) {
 void muestra(){
   unsigned int ent = 0;
   unsigned int dec = 0;
+  char susv[6];
+  char minpassed = ' ';
+  char hourpassed = ' ';
 
   // Fixed point uSv;
   ent = (int)uSv;
-  dec = (int)((uSv - (float)ent) * 10000);
-#ifdef LCD
+  dec = (int)((uSv - (float)ent) * 1000);
+  //String uSv
+  sprintf(susv,"%d.%d%d%d",ent, dec/100, (dec % 100)/10,dec % 10);
+  
+  //Not confiable warning
+  if (millis()<60000) minpassed='?';
+  if (millis()<3600000) hourpassed='?';
+  
+#ifdef LCG
   // LCD DISPLAY COMPOSITION
   nokia.clear();
   nokia.println(fecha);
@@ -387,11 +402,23 @@ void muestra(){
   nokia.println(s);
   sprintf(s,"CPS %d",CPS);
   nokia.println(s);
-  sprintf(s,"CPM %d",CPM);
+  sprintf(s,"CPM %d%c",CPM,.minpassed);
   nokia.println(s);  
-  sprintf(s,"uSv/h %d.%d",ent,dec);
+  sprintf(s,"uSv/h %s%c",susv,hourpassed);
   nokia.println(s);
   nokia.display();
+#endif
+#ifdef LCT
+lcd.clear();
+lcd.setCursor(0, 0);
+lcd.print(CPS);
+lcd.print(" ");
+lcd.print(CPM);
+lcd.print(minpassed);
+lcd.setCursor(0, 1);
+lcd.print(susv);
+lcd.print(hourpassed);
+lcd.print(BAT/100);
 #endif
 #ifdef SER
   Serial.print(fecha);   
@@ -403,10 +430,10 @@ void muestra(){
   Serial.print(CPS);
   Serial.print(" CPM:"); 
   Serial.print(CPM);
+  Serial.print(minpassed);
   Serial.print(" uSv/h:");  
-  Serial.print(ent); 
-  Serial.print("."); 
-  Serial.println(dec);
+  Serial.print(susv); 
+  Serial.println(hourpassed);
 #endif  
 #ifdef SDC  
   dataFile.println(s);
@@ -554,14 +581,22 @@ void everysecond(){
 // Main
 //////////////////////////////////////////////////
 void loop(){
+  unsigned long tt;
   // A second passed
+ 
+  // This last 86 milliseconds;
+  //tt = millis();
   everysecond();
-  // Make 100ms long pings
-  for (i=0;i<10;i++) {
-    delay(95);
-    digitalWrite(LEDPIN,LOW);
-    analogWrite(BUZPIN,0);
+  digitalWrite(LEDPIN,LOW);
+  analogWrite(BUZPIN,0);
+ 
+  // Make 20ms long pings
+  for (i=0;i<46;i++) {
+      delay(20);
+      digitalWrite(LEDPIN,LOW);
+      analogWrite(BUZPIN,0);
   }
+  
   // Attend to serial
   if (Serial.available()) {
     switch (Serial.read()) {
@@ -577,6 +612,11 @@ void loop(){
       default: Serial.println("# ?: Help | I: Info | L: Show log | T: Test tick | D: EEPROM data dump | R: Reset EEPROM (care!) | ");
     }
   }  
+  digitalWrite(LEDPIN,LOW);
+  analogWrite(BUZPIN,0);
+  //tt = millis() - tt; 
+  //Serial.println(tt);
+
 }
 //////////////////////////////////////////////////
 // END
