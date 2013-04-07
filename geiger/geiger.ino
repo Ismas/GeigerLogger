@@ -591,7 +591,10 @@ void loop(){
   analogWrite(BUZPIN,0);
  
   // Make 20ms long pings
-  for (i=0;i<46;i++) {
+  // THIS MUST BE ADJUSTED FOR EVERY SCREEN
+  // 49 for LCT
+  // 47 for LCG
+  for (i=0;i<49;i++) {
       delay(20);
       digitalWrite(LEDPIN,LOW);
       analogWrite(BUZPIN,0);
