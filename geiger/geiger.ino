@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////
-// GEIGER COUNTER / LOGGER V1.0
+// GEIGER COUNTER / LOGGER V1.0.3
 // (c) Ismas 2013
 //
 // License Creative Commons Attribution-NonCommercial-ShareAlike
@@ -22,13 +22,18 @@
 #define EEP  1// Eeprom
 //define SDC 1// SD Card
 //define GPS 1// GPS
-#define DSK 1 // EEPROM external memory
+//#define DSK 1 // EEPROM external memory
+///////////////////////////////
+//#define SETHOUR
 ///////////////////////////////
 
 ///////////////////////////////
 // Include block
 // #ifdef directive does not work here
 ///////////////////////////////
+// TIme libraries
+#include "Time.h"
+//#include "DS1307RTC.h"
 // Nokia screen
 #include "PCD8544.h"
 // SD card R/W
@@ -69,11 +74,13 @@
 //#define HVCONST   2.15     // PWM to high voltage ratio. Not sure of this
 #define HVCONST   8.5        // PWM to high voltage ratio. Not sure of this
 #define TEMPCONST 0.456054688 // mv to temperature ratio
-#define BATCONST  10.15          // read to mvolts battery ratio
+#define BATCONST  10.00          // read to mvolts battery ratio
 //#define uSvCONST  0.0057      // SBM-20 Conversion CPM to uSv, PER HOUR
 #define uSvCONST  0.000095      // SBM-20 Conversion CPM to uSv, PER MINUTE
-#define EEMAX     1024        // eprom memory size in bytes. This is for internal nano
-//#define EEMAX     128*1024  //eeprom memory size in bytes. This is for 27LC1025
+//#define EEMAX     1024          // eprom memory size in bytes. This is for internal nano
+//#define EEMAX     128*1024   //eeprom memory size in bytes. This is for 27LC1025
+#define EEMAX     65535        //eeprom memory size in bytes. This is for 64KB
+#define EEHEADERSIZE  3        // Header size on memory for information.
 #define DISK1     0x50        // External eeprom i2c id 
 #define SERSPEED  19200       // Serial baudrate
 //////////////////////////////////
@@ -114,6 +121,14 @@ char          fecha[11];
 //////////////////////////////////////////////////
 // Hardware functions
 //////////////////////////////////////////////////
+
+////////////////////////////////////////////////
+// Set system time from RTC
+///////////////////////////////////////////////
+void setsystemtime(){
+  // Set "system" time
+  setTime(RTC.get(DS1307_HR,true), RTC.get(DS1307_MIN,false), RTC.get(DS1307_SEC,false), RTC.get(DS1307_DATE,false), RTC.get(DS1307_MTH,false),RTC.get(DS1307_YR,false));
+}
 
 ////////////////////////////////////////////////
 // EEPROM FUNCTIONS
@@ -180,27 +195,45 @@ void eepromdump() {
 }
 
 void eepromdumpformatted() {
-  unsigned long t1, t2, t3, t4;
-  Serial.print("Position: ");
-  Serial.println((unsigned long)(readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2)) );
-  Serial.println("Date  Lon  Lat CPM");
-  for (i=3; i<EEMAX; i+=15) {
-    // TODO TODO TODO Fix this
-    /*
+  unsigned long li,lp,lcpm, epoch;
+
+  // Read last position stored
 #ifdef DSK
-    sprintf(s,"%04l %04l %04l %04l\n",
-      (unsigned long)(readEEPROM(DISK1,i) *0x1000000 + readEEPROM(DISK1,i+1) *0x10000 + readEEPROM(DISK1,i+2) *0x100 + readEEPROM(DISK1,i+3)),
-      (unsigned long)(readEEPROM(DISK1,i+4) *0x1000000 + readEEPROM(DISK1,i+5) *0x10000 + readEEPROM(DISK1,i+6) *0x100 + readEEPROM(DISK1,i+7)), 
-      (unsigned long)(readEEPROM(DISK1,i+8) *0x1000000 + readEEPROM(DISK1,i+9) *0x10000 + readEEPROM(DISK1,i+10) *0x100 + readEEPROM(DISK1,i+11)), 
-      (unsigned long)(readEEPROM(DISK1,i+12) *0x10000 + readEEPROM(DISK1,i+13) *0x100 + readEEPROM(DISK1,i+14)) 
-     ); 
+  lp = readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2))
 #endif
 #ifndef DSK
-  EEpos = (unsigned long)(EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2)); //Posicion actual
+  lp = EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2);
 #endif
-*/
-    Serial.print(s);
+  // Print a header
+  Serial.print("Last position: ");
+  Serial.println(lp);
+  //Serial.println("   Epoch         Date           CPM");
+  Serial.println("   Date           CPM");
+  // Run the disk
+  for (li=3; li<lp; li+=7) {
+#ifdef DSK
+    lcpm  = (unsigned)readEEPROM(DISK1,li) *0x10000 + (unsigned)readEEPROM(DISK1,li+1) *0x100 + (unsigned)readEEPROM(DISK1,li+2);
+    epoch = (unsigned)readEEPROM(DISK1,li+3) *0x1000000 + (unsigned)readEEPROM(DISK1,li+4) *0x10000 + (unsigned)readEEPROM(DISK1,li+5) *0x100 + (unsigned)readEEPROM(DISK1,li+6);    
+#endif
+#ifndef DSK
+    lcpm  = (unsigned)EEPROM.read(li) *0x10000 + (unsigned)EEPROM.read(li+1) *0x100 + (unsigned)EEPROM.read(li+2);
+    epoch = (unsigned)EEPROM.read(li+3) * 0x1000000 + (unsigned)EEPROM.read(li+4) *0x10000 + (unsigned)EEPROM.read(li+5) *0x100 + (unsigned)EEPROM.read(li+6);    
+#endif
+    // Display it
+    //Serial.print(epoch);
+    //Serial.print(" ");
+    // Get human date from epoch
+    setTime(epoch);
+    sprintf(hora,"%02d:%02d.%02d", hour(), minute(), second());
+    sprintf(fecha,"%02d/%02d/%02d",day(),month(),year());
+    Serial.print(fecha);
+    Serial.print(" ");
+    Serial.print(hora);
+    Serial.print(" ");
+    Serial.println(lcpm);
   }     
+  // Fix system time
+  setsystemtime();
 }
 #endif
 
@@ -222,9 +255,12 @@ void setHV(int volts){
   analogWrite(HVPIN, (unsigned int)((float)volts/HVCONST));  
 }
 
+/////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////
+////////////////////////////////////////////
 // SETUP
+////////////////////////////////////////////
 ////////////////////////////////////////////
 void setup(){
   // Set pins
@@ -236,20 +272,24 @@ void setup(){
 #ifdef RCK
   // RTC HOUR SET
   // Uncomment and change to set clock
- 
+#ifdef SETHOUR 
    RTC.stop();
    RTC.set(DS1307_SEC,00);     //set the seconds
-   RTC.set(DS1307_MIN,50);     //set the minutes
-   RTC.set(DS1307_HR,20);      //set the hours
-   RTC.set(DS1307_DOW,3);      //set the day of the week
-   RTC.set(DS1307_DATE,29);    //set the date
-   RTC.set(DS1307_MTH,3);     //set the month
+   RTC.set(DS1307_MIN,36);     //set the minutes
+   RTC.set(DS1307_HR,13);      //set the hours
+   RTC.set(DS1307_DOW,0);      //set the day of the week
+   RTC.set(DS1307_DATE,14);    //set the date
+   RTC.set(DS1307_MTH,4);     //set the month
    RTC.set(DS1307_YR,13);      //set the year
-  
+#endif
+
   RTC.stop();
   delay(50);
+  setsystemtime();
   RTC.start();
   delay(50);
+
+
 #endif
 
   // Serial  
@@ -319,7 +359,7 @@ void setup(){
 #ifdef LCT
   lcd.begin(8, 2);
   lcd.setCursor(0, 0);
-  lcd.println("Geiger ");
+  lcd.println(" Geiger ");
   lcd.setCursor(0, 1);
   lcd.print("dosimetr");
   delay(1000);
@@ -371,8 +411,6 @@ void getbatt() {
   BAT = int(analogRead(BATPIN) * BATCONST); 
 }
 
-
-
 ////////////////////////////////////////////////
 // Display function
 ////////////////////////////////////////////////
@@ -390,8 +428,19 @@ void muestra(){
   sprintf(susv,"%d.%d%d%d",ent, dec/100, (dec % 100)/10,dec % 10);
   
   //Not confiable warning
-  if (millis()<60000) minpassed='?';
-  if (millis()<3600000) hourpassed='?';
+  if (millis()<60000) minpassed='*';
+  if (millis()<3600000) hourpassed='*';
+
+  // Get hour
+#ifdef RCK
+  // Gest hour directly from RTC - obsolete
+  //sprintf(hora,"%02d:%02d.%02d", RTC.get(DS1307_HR,true),RTC.get(DS1307_MIN,false),RTC.get(DS1307_SEC,false));
+  //sprintf(fecha,"%02d/%02d/%02d",RTC.get(DS1307_DATE,false),RTC.get(DS1307_MTH,false),RTC.get(DS1307_YR,false));
+  //Get hour from system time
+  sprintf(hora,"%02d:%02d.%02d", hour(), minute(), second());
+  sprintf(fecha,"%02d/%02d/%02d",day(),month(),year());
+#endif
+
   
 #ifdef LCG
   // LCD DISPLAY COMPOSITION
@@ -409,18 +458,20 @@ void muestra(){
   nokia.display();
 #endif
 #ifdef LCT
-lcd.clear();
-lcd.setCursor(0, 0);
-lcd.print(CPS);
-lcd.print(" ");
-lcd.print(CPM);
-lcd.print(minpassed);
-lcd.setCursor(0, 1);
-lcd.print(susv);
-lcd.print(hourpassed);
-lcd.print(BAT/100);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(CPS);
+  lcd.print(" ");
+  lcd.print(CPM);
+  lcd.print(minpassed);
+  lcd.setCursor(0, 1);
+  lcd.print(susv);
+  lcd.print(hourpassed);
+  lcd.print(BAT/100);
 #endif
 #ifdef SER
+  Serial.print(now());
+  Serial.print(" ");
   Serial.print(fecha);   
   Serial.print(" ");  
   Serial.print(hora);
@@ -472,56 +523,55 @@ void disklog() {
   unsigned long t;
 #ifdef EEP
     // Store current CPM in EEPROM
-    // Only 16 bits
-#ifndef DSK
     // Internal EEPROM - only 24 bits are saved
+    // Write CPM
     t = CPM & 0x00FFFFFF;
     Serial.print("Stored: ");
     Serial.print(t);
-    EEPROM.write(EEpos, t / 0x10000); 
-    EEpos++;
-    t %= 0x10000;
-    EEPROM.write(EEpos, t / 0x100); 
-    EEpos++;
-    t %= 0x100;
-    EEPROM.write(EEpos, t); 
-    EEpos++;    
-    // write new pos - only 24 bits are saved
-    t = EEpos & 0x00FFFFFF;
-    Serial.print(" Position: ");
-    Serial.println(t);
-    EEPROM.write(0, t / 0x10000); 
-    t %= 0x10000;
-    EEPROM.write(1, t / 0x100); 
-    t %= 0x100;
-    EEPROM.write(2, t); 
-#endif
 #ifdef DSK
-    // External EEPROM - only 24 bits are used
-    t = CPM & 0x00FFFFFF;
-    Serial.print("Stored: ");
+    writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
+    writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
+    writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
+#endif
+#ifndef DSK
+    EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
+    EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
+    EEPROM.write(EEpos++, (t&0x000000FF)); 
+#endif  
+    // Write Epoch (Linux time from 1/1/1970)
+    t = now();
+    Serial.print(" Epoch: ");
     Serial.print(t);
-    writeEEPROM(DISK1, EEpos, t / 0x10000); 
-    EEpos++;
-    t %= 0x10000;
-    writeEEPROM(DISK1, EEpos, t / 0x100); 
-    EEpos++;
-    t %= 0x100;
-    writeEEPROM(DISK1, EEpos, t); 
-    EEpos++;
+#ifdef DSK
+    writeEEPROM(DISK1, EEpos++, (t&0xFF000000)>>24); 
+    writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
+    writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
+    writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
+#endif
+#ifndef DSK
+    EEPROM.write(EEpos++, (t&0xFF000000)>>24); 
+    EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
+    EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
+    EEPROM.write(EEpos++, (t&0x000000FF)); 
+#endif  
     // write new pos - only 24 bits are saved
     t = EEpos & 0x00FFFFFF;
     Serial.print(" Position: ");
     Serial.println(t);
-    writeEEPROM(DISK1, 0, t / 0x10000); 
-    t %= 0x10000;
-    writeEEPROM(DISK1,1, t / 0x100); 
-    t %= 0x100;
-    writeEEPROM(DISK1,2, t); 
-
+#ifdef DSK
+    writeEEPROM(DISK1, 0, (t&0x00FF0000)>>16); 
+    writeEEPROM(DISK1, 1, (t&0x0000FF00)>>8); 
+    writeEEPROM(DISK1, 2, (t&0x000000FF)); 
 #endif
+#ifndef DSK
+    EEPROM.write(0, (t&0x00FF0000)>>16); 
+    EEPROM.write(1, (t&0x0000FF00)>>8); 
+    EEPROM.write(2, (t&0x000000FF)); 
+#endif  
     // Cicle memory
     EEpos %= EEMAX;
+    // Jump header
+    if (EEpos < EEHEADERSIZE) EEpos = EEHEADERSIZE;
 #endif
 }
 
@@ -566,11 +616,6 @@ void everysecond(){
   // Get new data
   gettemp();
   getbatt();
-  // Get hour
-#ifdef RCK
-  sprintf(hora,"%02d:%02d.%02d", RTC.get(DS1307_HR,true),RTC.get(DS1307_MIN,false),RTC.get(DS1307_SEC,false));
-  sprintf(fecha,"%02d/%02d/%02d",RTC.get(DS1307_DATE,false),RTC.get(DS1307_MTH,false),RTC.get(DS1307_YR,false));
-#endif
   calculaCPM();
   calculauSv();
   // RESET CPS - Is now done at calculaCPM(); 
@@ -594,8 +639,8 @@ void loop(){
   // THIS MUST BE ADJUSTED FOR EVERY SCREEN
   // 49 for LCT
   // 47 for LCG
-  for (i=0;i<49;i++) {
-      delay(20);
+  for (i=0;i<52;i++) {
+      delay(19);
       digitalWrite(LEDPIN,LOW);
       analogWrite(BUZPIN,0);
   }
