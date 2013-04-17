@@ -22,7 +22,7 @@
 #define EEP  1// Eeprom
 //define SDC 1// SD Card
 //define GPS 1// GPS
-//#define DSK 1 // EEPROM external memory
+#define DSK 1 // EEPROM external memory
 ///////////////////////////////
 //#define SETHOUR
 ///////////////////////////////
@@ -33,7 +33,6 @@
 ///////////////////////////////
 // TIme libraries
 #include "Time.h"
-//#include "DS1307RTC.h"
 // Nokia screen
 #include "PCD8544.h"
 // SD card R/W
@@ -83,6 +82,7 @@
 #define EEHEADERSIZE  3        // Header size on memory for information.
 #define DISK1     0x50        // External eeprom i2c id 
 #define SERSPEED  19200       // Serial baudrate
+#define TUBEVOLT  320         // Tube voltage
 //////////////////////////////////
 // Hardware globals
 ///////////////////////////////////
@@ -168,29 +168,58 @@ byte readEEPROM(int deviceaddress, unsigned int eeaddress ) {
 
 #ifdef EEP
 void reseteeprom() {
+  unsigned long li;
+  
   Serial.println("Resetting EEPROM");
-  for (i=0;i<EEMAX;i++) {
+  for (li=0;li<EEMAX;i++) {
 #ifdef DSK
-    writeEEPROM(DISK1, i, 0);
+    writeEEPROM(DISK1, li, 0);
 #endif
 #ifndef DSK
-    EEPROM.write(i,0);
+    EEPROM.write(li,0);
 #endif
-    Serial.print(i);Serial.print("/"); Serial.println(EEMAX);
-  }
+#ifdef LCT
+  lcd.setCursor(0, 0);
+  lcd.println(" FORMAT ");
+#endif
+    if (i%256==0) {
+      Serial.print(li);
+      Serial.print("/"); 
+      Serial.println(EEMAX);
+#ifdef LCT
+      lcd.setCursor(0, 1);
+      lcd.print(li*100/EEMAX);
+      lcd.print("%      ");
+#endif
+    }
+    digitalWrite(LEDPIN,LOW);
+    analogWrite(BUZPIN,0);
+  }  
   // Reset counter
- EEpos=3;
+  EEpos=3;
 }
 
 void eepromdump() {
-  for (i=0; i<EEMAX; i++) {
+  unsigned long li;
+#ifdef LCT
+  lcd.setCursor(0, 0);
+  lcd.println("DUMPING ");
+#endif
+  for (li=0; li<EEMAX; li++) {
 #ifndef DSK
-    sprintf(s,"%02X ",EEPROM.read(i));
+    sprintf(s,"%02X ",EEPROM.read(li));
 #endif
 #ifdef DSK
-    sprintf(s,"%02X ",readEEPROM(DISK1, i));
+    sprintf(s,"%02X ",readEEPROM(DISK1, li));
 #endif
     Serial.print(s);
+#ifdef LCT
+  if (li%256==0) {
+    lcd.setCursor(0, 1);
+    lcd.print(li*100/EEMAX);
+    lcd.print("%      ");
+  }
+#endif
   }     
 }
 
@@ -199,11 +228,16 @@ void eepromdumpformatted() {
 
   // Read last position stored
 #ifdef DSK
-  lp = readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2))
+  lp = readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2);
 #endif
 #ifndef DSK
   lp = EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2);
 #endif
+#ifdef LCT
+  lcd.setCursor(0, 0);
+  lcd.println("DUMPINNG ");
+#endif
+
   // Print a header
   Serial.print("Last position: ");
   Serial.println(lp);
@@ -231,6 +265,14 @@ void eepromdumpformatted() {
     Serial.print(hora);
     Serial.print(" ");
     Serial.println(lcpm);
+#ifdef LCT
+    if (li%256==0) {
+      lcd.setCursor(0, 1);
+      lcd.print(li*100/EEMAX);
+      lcd.print("%     ");
+    }
+#endif
+
   }     
   // Fix system time
   setsystemtime();
@@ -273,14 +315,14 @@ void setup(){
   // RTC HOUR SET
   // Uncomment and change to set clock
 #ifdef SETHOUR 
-   RTC.stop();
-   RTC.set(DS1307_SEC,00);     //set the seconds
-   RTC.set(DS1307_MIN,36);     //set the minutes
-   RTC.set(DS1307_HR,13);      //set the hours
-   RTC.set(DS1307_DOW,0);      //set the day of the week
-   RTC.set(DS1307_DATE,14);    //set the date
-   RTC.set(DS1307_MTH,4);     //set the month
-   RTC.set(DS1307_YR,13);      //set the year
+  RTC.stop();
+  RTC.set(DS1307_SEC,00);     //set the seconds
+  RTC.set(DS1307_MIN,55);     //set the minutes
+  RTC.set(DS1307_HR,19);      //set the hours
+  RTC.set(DS1307_DOW,3);      //set the day of the week
+  RTC.set(DS1307_DATE,17);    //set the date
+  RTC.set(DS1307_MTH,4);     //set the month
+  RTC.set(DS1307_YR,13);      //set the year
 #endif
 
   RTC.stop();
@@ -378,7 +420,7 @@ void setup(){
   for (i=0;i<59;i++) CPMB[i]=0;
 
   // Start GM tube
-  setHV(400);
+  setHV(TUBEVOLT);
 
   // FAST PWM with OCRA
   /* 
@@ -426,7 +468,7 @@ void muestra(){
   dec = (int)((uSv - (float)ent) * 1000);
   //String uSv
   sprintf(susv,"%d.%d%d%d",ent, dec/100, (dec % 100)/10,dec % 10);
-  
+
   //Not confiable warning
   if (millis()<60000) minpassed='*';
   if (millis()<3600000) hourpassed='*';
@@ -441,7 +483,7 @@ void muestra(){
   sprintf(fecha,"%02d/%02d/%02d",day(),month(),year());
 #endif
 
-  
+
 #ifdef LCG
   // LCD DISPLAY COMPOSITION
   nokia.clear();
@@ -470,8 +512,9 @@ void muestra(){
   lcd.print(BAT/100);
 #endif
 #ifdef SER
-  Serial.print(now());
-  Serial.print(" ");
+  // Epoch displayed for debuggin purposes
+  //Serial.print(now());
+  //Serial.print(" ");
   Serial.print(fecha);   
   Serial.print(" ");  
   Serial.print(hora);
@@ -499,17 +542,19 @@ void info() {
   Serial.print(fecha);
   Serial.print(" ");
   Serial.println(hora);
-  Serial.print("Temp: ");
+  Serial.print("Temp (C): ");
   Serial.println(TEMP);
-  Serial.print("Batt: ");
+  Serial.print("Batt (mv): ");
   Serial.println(BAT);
-  Serial.print("Memory: ");
+  Serial.print("Memory (bytes): ");
   Serial.println(EEMAX);
-  Serial.print("Position: ");
+  Serial.print("Position (byte): ");
   Serial.println(EEpos);
+  Serial.print("Tube supply (V): ");
+  Serial.println(TUBEVOLT);
   Serial.print("SBM constant: ");
   Serial.println(uSvCONST);
-  
+
 #endif
 }
 
@@ -522,56 +567,56 @@ void info() {
 void disklog() {
   unsigned long t;
 #ifdef EEP
-    // Store current CPM in EEPROM
-    // Internal EEPROM - only 24 bits are saved
-    // Write CPM
-    t = CPM & 0x00FFFFFF;
-    Serial.print("Stored: ");
-    Serial.print(t);
+  // Store current CPM in EEPROM
+  // Internal EEPROM - only 24 bits are saved
+  // Write CPM
+  t = CPM & 0x00FFFFFF;
+  Serial.print("Stored: ");
+  Serial.print(t);
 #ifdef DSK
-    writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
-    writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
-    writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
+  writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
+  writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
+  writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
 #endif
 #ifndef DSK
-    EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
-    EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
-    EEPROM.write(EEpos++, (t&0x000000FF)); 
+  EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
+  EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
+  EEPROM.write(EEpos++, (t&0x000000FF)); 
 #endif  
-    // Write Epoch (Linux time from 1/1/1970)
-    t = now();
-    Serial.print(" Epoch: ");
-    Serial.print(t);
+  // Write Epoch (Linux time from 1/1/1970)
+  t = now();
+  Serial.print(" Epoch: ");
+  Serial.print(t);
 #ifdef DSK
-    writeEEPROM(DISK1, EEpos++, (t&0xFF000000)>>24); 
-    writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
-    writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
-    writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
+  writeEEPROM(DISK1, EEpos++, (t&0xFF000000)>>24); 
+  writeEEPROM(DISK1, EEpos++, (t&0x00FF0000)>>16); 
+  writeEEPROM(DISK1, EEpos++, (t&0x0000FF00)>>8); 
+  writeEEPROM(DISK1, EEpos++, (t&0x000000FF)); 
 #endif
 #ifndef DSK
-    EEPROM.write(EEpos++, (t&0xFF000000)>>24); 
-    EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
-    EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
-    EEPROM.write(EEpos++, (t&0x000000FF)); 
+  EEPROM.write(EEpos++, (t&0xFF000000)>>24); 
+  EEPROM.write(EEpos++, (t&0x00FF0000)>>16); 
+  EEPROM.write(EEpos++, (t&0x0000FF00)>>8); 
+  EEPROM.write(EEpos++, (t&0x000000FF)); 
 #endif  
-    // write new pos - only 24 bits are saved
-    t = EEpos & 0x00FFFFFF;
-    Serial.print(" Position: ");
-    Serial.println(t);
+  // write new pos - only 24 bits are saved
+  t = EEpos & 0x00FFFFFF;
+  Serial.print(" Position: ");
+  Serial.println(t);
 #ifdef DSK
-    writeEEPROM(DISK1, 0, (t&0x00FF0000)>>16); 
-    writeEEPROM(DISK1, 1, (t&0x0000FF00)>>8); 
-    writeEEPROM(DISK1, 2, (t&0x000000FF)); 
+  writeEEPROM(DISK1, 0, (t&0x00FF0000)>>16); 
+  writeEEPROM(DISK1, 1, (t&0x0000FF00)>>8); 
+  writeEEPROM(DISK1, 2, (t&0x000000FF)); 
 #endif
 #ifndef DSK
-    EEPROM.write(0, (t&0x00FF0000)>>16); 
-    EEPROM.write(1, (t&0x0000FF00)>>8); 
-    EEPROM.write(2, (t&0x000000FF)); 
+  EEPROM.write(0, (t&0x00FF0000)>>16); 
+  EEPROM.write(1, (t&0x0000FF00)>>8); 
+  EEPROM.write(2, (t&0x000000FF)); 
 #endif  
-    // Cicle memory
-    EEpos %= EEMAX;
-    // Jump header
-    if (EEpos < EEHEADERSIZE) EEpos = EEHEADERSIZE;
+  // Cicle memory
+  EEpos %= EEMAX;
+  // Jump header
+  if (EEpos < EEHEADERSIZE) EEpos = EEHEADERSIZE;
 #endif
 }
 
@@ -628,36 +673,47 @@ void everysecond(){
 void loop(){
   unsigned long tt;
   // A second passed
- 
+
   // This last 86 milliseconds;
   //tt = millis();
   everysecond();
   digitalWrite(LEDPIN,LOW);
   analogWrite(BUZPIN,0);
- 
+
   // Make 20ms long pings
   // THIS MUST BE ADJUSTED FOR EVERY SCREEN
   // 49 for LCT
   // 47 for LCG
   for (i=0;i<52;i++) {
-      delay(19);
-      digitalWrite(LEDPIN,LOW);
-      analogWrite(BUZPIN,0);
+    delay(19);
+    digitalWrite(LEDPIN,LOW);
+    analogWrite(BUZPIN,0);
   }
-  
+
   // Attend to serial
   if (Serial.available()) {
     switch (Serial.read()) {
-      case 'D': eepromdump(); break;
-      case 'L': eepromdumpformatted(); break;
-      case 'R': reseteeprom(); break;
-      case 'I': info(); break;
-      case 'T': digitalWrite(LEDPIN,HIGH);
-                analogWrite(BUZPIN,16);
-                break;
-      case 10 :
-      case 13 : break;
-      default: Serial.println("# ?: Help | I: Info | L: Show log | T: Test tick | D: EEPROM data dump | R: Reset EEPROM (care!) | ");
+    case 'D': 
+      eepromdump(); 
+      break;
+    case 'L': 
+      eepromdumpformatted(); 
+      break;
+    case 'R': 
+      reseteeprom(); 
+      break;
+    case 'I': 
+      info(); 
+      break;
+    case 'T': 
+      digitalWrite(LEDPIN,HIGH);
+      analogWrite(BUZPIN,16);
+      break;
+    case 10 :
+    case 13 : 
+      break;
+    default: 
+      Serial.println("# ?: Help | I: Info | L: Show log | T: Test tick | D: EEPROM data dump | R: Reset EEPROM (care!) | ");
     }
   }  
   digitalWrite(LEDPIN,LOW);
@@ -669,5 +725,6 @@ void loop(){
 //////////////////////////////////////////////////
 // END
 //////////////////////////////////////////////////
+
 
 
