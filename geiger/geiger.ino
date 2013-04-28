@@ -14,8 +14,8 @@
 // CAPABILITES SELECTOR
 ////////////////////////////
 // Uncomment to enable.
-#define LCT  1// Text Display HD8448
-//#define LCG  1// Graphic Display PCD8544
+//#define LCT  1// Text Display HD8448
+#define LCG  1// Graphic Display PCD8544
 #define RCK  1// Clock
 #define TMP  1// Termometer
 #define SER  1// Serial
@@ -24,7 +24,7 @@
 //define GPS 1// GPS
 #define DSK 1 // EEPROM external memory
 ///////////////////////////////
-//#define SETHOUR
+//#define SETHOUR 1
 ///////////////////////////////
 
 ///////////////////////////////
@@ -71,9 +71,10 @@
 ////////////////////////////
 #define IRQ        0         // Matches to pin 2
 //#define HVCONST   2.15     // PWM to high voltage ratio. Not sure of this
-#define HVCONST   8.5        // PWM to high voltage ratio. Not sure of this
-#define TEMPCONST 0.456054688 // mv to temperature ratio
-#define BATCONST  10.00          // read to mvolts battery ratio
+#define HVCONST   8.0        // PWM to high voltage ratio. Not sure of this
+//#define TEMPCONST 0.456054688 // mv to temperature ratio theorical
+#define TEMPCONST 0.38       // mv to temperature ratio adjusted
+#define BATCONST  9.8          // read to mvolts battery ratio
 //#define uSvCONST  0.0057      // SBM-20 Conversion CPM to uSv, PER HOUR
 #define uSvCONST  0.000095      // SBM-20 Conversion CPM to uSv, PER MINUTE
 //#define EEMAX     1024          // eprom memory size in bytes. This is for internal nano
@@ -82,7 +83,10 @@
 #define EEHEADERSIZE  3        // Header size on memory for information.
 #define DISK1     0x50        // External eeprom i2c id 
 #define SERSPEED  19200       // Serial baudrate
-#define TUBEVOLT  320         // Tube voltage
+#define TUBEVOLT  380         // Tube voltage
+#define LOOPADJUST            // Enable to display main loop time on serial
+#define LOOP      48          // Main loop adjust to last 1000ms
+#define  KRAD      0,017452406 // Radians to degrees
 //////////////////////////////////
 // Hardware globals
 ///////////////////////////////////
@@ -116,6 +120,71 @@ unsigned long EEpos = 3; //32 bits variable, only 24 bits addressing
 unsigned int  BAT = 0;  // Battery level x1000;
 char          hora[9];
 char          fecha[11];
+char          DISKWRITE = ' ';
+///////////////////////////////////////////
+// Graphics
+///////////////////////////////////////////
+static unsigned char PROGMEM diskicon[] = { 
+  B00011000,
+  B00111100, 
+  B01011010, 
+  B10011001,
+  B10011001,
+  B10001001,
+  B01000010,  
+  B00111100
+};
+static unsigned char PROGMEM diskicon2[] = { 
+  B00011000,
+  B00011000, 
+  B01011010, 
+  B11011011,
+  B11011011,
+  B11011011,
+  B01001010,  
+  B00111100
+};
+static unsigned char PROGMEM batteryicon[] = { 
+  B11111100,
+  B10000111, 
+  B10110101, 
+  B10110101, 
+  B10000111, 
+  B11111100,
+  B00000000,
+  B00000000
+};
+static unsigned char PROGMEM thermoicon[] = { 
+  B00000000,
+  B00000000,
+  B01100000,
+  B10011110, 
+  B10000001, 
+  B10011110, 
+  B01100000,
+  B00000000,
+  B00000000
+};
+static unsigned char PROGMEM warnicon[] = { 
+  B11000000,
+  B10110000,
+  B10001100,
+  B10110011,
+  B10110011,
+  B10001100,
+  B10110000,
+  B11000000,
+};
+static unsigned char PROGMEM okicon[] = { 
+  B00011000,
+  B00110000,
+  B01100000,
+  B00110000, 
+  B00011000, 
+  B00001100, 
+  B00000110,
+  B00000000
+};
 ///////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -297,6 +366,40 @@ void setHV(int volts){
   analogWrite(HVPIN, (unsigned int)((float)volts/HVCONST));  
 }
 
+
+#ifdef LCG
+/*
+/////////////////////////////////////////////////
+// Starting animation
+/////////////////////////////////////////////////
+void getnuclear(){
+  float t, t2;
+  int j;
+  //nokia.fillcircle( 42, 24, 24, 1);
+  //nokia.fillcircle( 42, 24, 8, 0);
+  //nokia.fillcircle( 42, 24, 6, 1);
+  for (i=0;i<60;i++) {
+      t= (float)i*KRAD;
+      nokia.drawline(42-(8*sin(t)),24-(8*cos(t)),42-(84*sin(t)),24-(48*cos(t)),1);
+      sprintf(s,"x1 %d y1 %d x2 %d y2 %d",42-(8*sin(t)),24-(8*cos(t)),42-(84*sin(t)),24-(48*cos(t)));
+      Serial.println(s);
+  }
+  for (j=0;j<24;j++) {
+    for (i=0;i<24;i++) {
+      t= (i+j)*KRAD;
+      nokia.drawline(42,24,42*sin(t), 24*cos(t),0);
+      t= (i+120+j)*KRAD;
+      nokia.drawline(42,24,42*sin(t), 24*cos(t),0);
+      t= (i+240+j)*KRAD;
+      nokia.drawline(42,24,42*sin(t), 24*cos(t),0);
+    }
+
+  nokia.display();
+  delay(10000);
+} 
+*/
+#endif
+
 /////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////
@@ -316,11 +419,11 @@ void setup(){
   // Uncomment and change to set clock
 #ifdef SETHOUR 
   RTC.stop();
-  RTC.set(DS1307_SEC,00);     //set the seconds
-  RTC.set(DS1307_MIN,55);     //set the minutes
-  RTC.set(DS1307_HR,19);      //set the hours
-  RTC.set(DS1307_DOW,3);      //set the day of the week
-  RTC.set(DS1307_DATE,17);    //set the date
+  RTC.set(DS1307_SEC,01);     //set the seconds
+  RTC.set(DS1307_MIN,37);     //set the minutes
+  RTC.set(DS1307_HR,17);      //set the hours
+  RTC.set(DS1307_DOW,1);      //set the day of the week
+  RTC.set(DS1307_DATE,28);    //set the date
   RTC.set(DS1307_MTH,4);     //set the month
   RTC.set(DS1307_YR,13);      //set the year
 #endif
@@ -330,8 +433,6 @@ void setup(){
   setsystemtime();
   RTC.start();
   delay(50);
-
-
 #endif
 
   // Serial  
@@ -358,12 +459,12 @@ void setup(){
 #ifdef LCG
   //Configure Screen
   nokia.init();
-  nokia.setContrast(40);
+  nokia.setContrast(60);
   //Invert screen if desired
   //nokia.command(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED);
   //Start message
   nokia.clear();
-  nokia.print("GEIGER logger\n Ismas 2013\n");
+  nokia.println("GEIGER logger\n Ismas 2013\n");
 #ifdef LCG
   nokia.print("LCD ");
 #endif
@@ -395,7 +496,9 @@ void setup(){
   nokia.print(EEMAX);
 #endif
   nokia.display();
-  delay(3000);
+  delay(1000);
+  //getnuclear();
+
 #endif
 
 #ifdef LCT
@@ -406,7 +509,7 @@ void setup(){
   lcd.print("dosimetr");
   delay(1000);
   lcd.setCursor(0, 0);
-  lcd.println("(C) Ismas");
+  lcd.println("(C)Ismas");
   lcd.setCursor(0, 1);
   lcd.print("  2013  ");
   delay(1000);
@@ -431,8 +534,9 @@ void setup(){
    OCR2B = 9;
    */
 
-  analogWrite(BUZPIN, 16);    // Buzzer PWM
-  digitalWrite(LEDPIN,HIGH); // Lights light
+  // Start test flash
+  analogWrite(BUZPIN, 16);      // Buzzer PWM
+  digitalWrite(LEDPIN,HIGH);   // Lights light
 
   // Start GM sensing interupt
   attachInterrupt(IRQ,irqattend,RISING);
@@ -462,7 +566,8 @@ void muestra(){
   char susv[6];
   char minpassed = ' ';
   char hourpassed = ' ';
-
+  char w;
+  
   // Fixed point uSv;
   ent = (int)uSv;
   dec = (int)((uSv - (float)ent) * 1000);
@@ -479,27 +584,65 @@ void muestra(){
   //sprintf(hora,"%02d:%02d.%02d", RTC.get(DS1307_HR,true),RTC.get(DS1307_MIN,false),RTC.get(DS1307_SEC,false));
   //sprintf(fecha,"%02d/%02d/%02d",RTC.get(DS1307_DATE,false),RTC.get(DS1307_MTH,false),RTC.get(DS1307_YR,false));
   //Get hour from system time
-  sprintf(hora,"%02d:%02d.%02d", hour(), minute(), second());
-  sprintf(fecha,"%02d/%02d/%02d",day(),month(),year());
+  //sprintf(hora,"%02d:%02d.%02d", hour(), minute(), second());
+  //sprintf(fecha,"%02d/%02d/%02d",day(),month(),year());
+  // Get hour from system time, compact
+  sprintf(hora,"%02d:%02d", hour(), minute(), second());
+  sprintf(fecha,"%02d%02d%02d",year(),month(),day());
 #endif
-
-
 #ifdef LCG
-  // LCD DISPLAY COMPOSITION
+  // LCD graphic DISPLAY COMPOSITION
   nokia.clear();
-  nokia.println(fecha);
-  nokia.println(hora);  
-  sprintf(s,"T %d   B %d", TEMP, BAT);
-  nokia.println(s);
-  sprintf(s,"CPS %d",CPS);
-  nokia.println(s);
-  sprintf(s,"CPM %d%c",CPM,.minpassed);
-  nokia.println(s);  
-  sprintf(s,"uSv/h %s%c",susv,hourpassed);
-  nokia.println(s);
+  nokia.drawbitmap(0, 0, thermoicon, 8, 8, 1);
+  sprintf(s,"%d", TEMP);
+  nokia.drawstring(9,0,s);
+  nokia.drawbitmap(24, 0, batteryicon, 8, 8, 1);
+  sprintf(s,"%d.%d", BAT/1000, (BAT%1000)/100);
+  nokia.drawstring(32,0,s);
+#ifdef EEP
+  // Storage icon
+  if (DISKWRITE!=' ') {
+    DISKWRITE=' ';
+    nokia.drawbitmap(56, 0, diskicon2, 8, 8, 1);
+  } else {
+    nokia.drawbitmap(56, 0, diskicon, 8, 8, 1);
+  };
+#endif
+  // Warning signs
+  // If danger (dose>10 times background) invert screen
+  if ( (CPM>350) || (ent>2)) {
+    nokia.command(PCD8544_DISPLAYCONTROL | PCD8544_DISPLAYINVERTED);  
+  }
+  // If high (dose>2 times background) mark icon
+  if ((CPS>10) || (CPM>70) || (dec>450)) {
+    nokia.drawbitmap(70, 0, warnicon, 8, 8, 1);
+  } else {
+    nokia.drawbitmap(70, 0, okicon, 8, 8, 1);
+  }
+  // Screen text
+  sprintf(s,"%s %s", fecha, hora);
+  nokia.drawstring(0,9,s);
+  sprintf(s,"CPS %d CPM %d%c",CPS, CPM, minpassed);
+  nokia.drawstring(0,21,s);
+  sprintf(s,"uSv/h %s%c\n",susv,hourpassed);
+  nokia.drawstring(0,29,s);
+  // Graphic bars
+  // Normal level line
+  nokia.drawline(9, 37,9, 48, 1);
+  // Graphic CPS bar
+  w = 8*CPS; if (w>84) w = 84;
+  nokia.fillrect(0,37,w, 3,1);
+  // Graphic CPM bar
+  w = CPM/4; if (w>84) w = 84;
+  nokia.fillrect(0,41, w, 3,1);
+ // Graphic uSv/h bar
+   w = ent*30 + (dec/30) ; if (w>84) w = 84;
+  nokia.fillrect(0,45, w, 3,1);
+  // Show it
   nokia.display();
 #endif
 #ifdef LCT
+  // Text display composition
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print(CPS);
@@ -618,6 +761,8 @@ void disklog() {
   // Jump header
   if (EEpos < EEHEADERSIZE) EEpos = EEHEADERSIZE;
 #endif
+
+  DISKWRITE = '*';
 }
 
 void calculaCPM(){
@@ -674,8 +819,12 @@ void loop(){
   unsigned long tt;
   // A second passed
 
-  // This last 86 milliseconds;
-  //tt = millis();
+  // Loop time adjust
+  // It must last as close to 1000ms as possible
+  // to adjust, enable LOOPADJUST 
+#ifdef LOOPADJUST
+  tt = millis();
+#endif
   everysecond();
   digitalWrite(LEDPIN,LOW);
   analogWrite(BUZPIN,0);
@@ -684,7 +833,7 @@ void loop(){
   // THIS MUST BE ADJUSTED FOR EVERY SCREEN
   // 49 for LCT
   // 47 for LCG
-  for (i=0;i<52;i++) {
+  for (i=0;i<LOOP;i++) {
     delay(19);
     digitalWrite(LEDPIN,LOW);
     analogWrite(BUZPIN,0);
@@ -718,9 +867,11 @@ void loop(){
   }  
   digitalWrite(LEDPIN,LOW);
   analogWrite(BUZPIN,0);
-  //tt = millis() - tt; 
-  //Serial.println(tt);
-
+#ifdef LOOPADJUST
+  // Time control - enable to display time & adjust loop duration
+  tt = millis() - tt; 
+  Serial.println(tt);
+#endif
 }
 //////////////////////////////////////////////////
 // END
