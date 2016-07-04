@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////
 // GEIGER COUNTER / LOGGER V1.0.3
-// (c) Ismas 2013
+// (c) Ismas 2013 LAST 20160704
 //
 // License Creative Commons Attribution-NonCommercial-ShareAlike
 // CC BY-NC-SA 
@@ -20,11 +20,13 @@
 #define TMP  1// Termometer
 #define SER  1// Serial
 #define EEP  1// Eeprom
-//define SDC 1// SD Card
-//define GPS 1// GPS
+//define SDC 1// SD Card NOT DEVELOPED
+//define GPS 1// GPS NOT DEVELOPED
 #define DSK 1 // EEPROM external memory
 ///////////////////////////////
-//#define SETHOUR 1
+// INTERNAL CLOCK SET ON COMPILE
+// UNCOMMON AND SET VALUES TO UPDATE CLOCK
+// #define SETHOUR 1  
 ///////////////////////////////
 
 ///////////////////////////////
@@ -70,7 +72,7 @@
 // Other HW definitions
 ////////////////////////////
 #define  IRQ        0         // Matches to pin 2
-#define  HVCONST    8.0       // PWM to high voltage ratio. Not sure of this
+#define  HVCONST    17.0       // PWM to high voltage ratio. Not sure of this 8.0 original
 #define  TEMPCONST  0.38      // mv to temperature ratio adjusted
 #define  BATCONST   9.8       // read to mvolts battery ratio
 //#define uSvCONST  0.0057    // SBM-20 Conversion CPM to uSv, PER HOUR
@@ -215,7 +217,7 @@ void reseteeprom() {
       Serial.print("/"); 
       Serial.println(EEMAX);
 #ifdef LCG
-      nokia.setCursor(64,0);
+      nokia.setCursor(54,0);
       sprintf(s," %d %%",(li*100)/EEMAX);
       nokia.print(s);
       nokia.display();
@@ -249,8 +251,8 @@ void eepromdump() {
     Serial.print(s);
 #ifdef LCG
     if (!(li%256)) {
-        nokia.setCursor(64,0);
-        sprintf(s," %d %%",(li*100)/EEMAX);
+        nokia.setCursor(54,0);
+        sprintf(s," %d%%",(li*100)/EEMAX);
         nokia.print(s);
         nokia.display();
     }
@@ -266,14 +268,14 @@ void eepromdump() {
 }
 
 void eepromdumpformatted() {
-  unsigned long li,lp,lcpm, epoch;
+  unsigned long li,lcpm, epoch;
 
   // Read last position stored
 #ifdef DSK
-  lp = readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2);
+  li = readEEPROM(DISK1,0) *0x10000 + readEEPROM(DISK1,1) *0x100 + readEEPROM(DISK1,2);
 #endif
 #ifndef DSK
-  lp = EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2);
+  li = EEPROM.read(0) *0x10000 + EEPROM.read(1) *0x100 + EEPROM.read(2);
 #endif
 #ifdef LCG
   nokia.setCursor(0,0);
@@ -287,10 +289,10 @@ void eepromdumpformatted() {
 
   // Print a header
   Serial.print("Last position: ");
-  Serial.println(lp);
+  Serial.println(li);
   Serial.println("   Date           CPM");
   // Run the disk
-  for (li=3; li<lp; li+=7) {
+  for (li=3; li<EEMAX; li+=7) {
 #ifdef DSK
     lcpm  = (unsigned)readEEPROM(DISK1,li) *0x10000 + (unsigned)readEEPROM(DISK1,li+1) *0x100 + (unsigned)readEEPROM(DISK1,li+2);
     epoch = (unsigned)readEEPROM(DISK1,li+3) *0x1000000 + (unsigned)readEEPROM(DISK1,li+4) *0x10000 + (unsigned)readEEPROM(DISK1,li+5) *0x100 + (unsigned)readEEPROM(DISK1,li+6);    
@@ -299,9 +301,6 @@ void eepromdumpformatted() {
     lcpm  = (unsigned)EEPROM.read(li) *0x10000 + (unsigned)EEPROM.read(li+1) *0x100 + (unsigned)EEPROM.read(li+2);
     epoch = (unsigned)EEPROM.read(li+3) * 0x1000000 + (unsigned)EEPROM.read(li+4) *0x10000 + (unsigned)EEPROM.read(li+5) *0x100 + (unsigned)EEPROM.read(li+6);    
 #endif
-    // Display it
-    //Serial.print(epoch);
-    //Serial.print(" ");
     // Get human date from epoch
     setTime(epoch);
     getsdate();
@@ -309,8 +308,8 @@ void eepromdumpformatted() {
     Serial.println(s);
 #ifdef LCG
     if (!(li%256)) {
-        nokia.setCursor(64,0);
-        sprintf(s," %d %%",(li*100)/EEMAX);
+        nokia.setCursor(54,0);
+        sprintf(s," %d%%",(li*100)/EEMAX);
         nokia.print(s);
         nokia.display();
     }
@@ -401,12 +400,12 @@ void setup(){
   RTC.stop();
 #ifdef SETHOUR 
   RTC.set(DS1307_SEC,01);     //set the seconds
-  RTC.set(DS1307_MIN,37);     //set the minutes
-  RTC.set(DS1307_HR,17);      //set the hours
+  RTC.set(DS1307_MIN,17);     //set the minutes
+  RTC.set(DS1307_HR,21);      //set the hours
   RTC.set(DS1307_DOW,1);      //set the day of the week
-  RTC.set(DS1307_DATE,28);    //set the date
-  RTC.set(DS1307_MTH,4);     //set the month
-  RTC.set(DS1307_YR,13);      //set the year
+  RTC.set(DS1307_DATE,4);    //set the date
+  RTC.set(DS1307_MTH,7);     //set the month
+  RTC.set(DS1307_YR,16);      //set the year
 #endif
   setsystemtime();
   RTC.start();
